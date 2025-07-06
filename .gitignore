@@ -1,0 +1,8 @@
+# IDE
+.vscode/
+
+# Python
+__pycache__/
+
+# Tests datas
+health_data.json
