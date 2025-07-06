@@ -103,7 +103,78 @@ Design and develop a fully offline, Edge AI-powered desktop application aimed at
 
 ---
 
-## 9. Hackathon Alignment – Qualcomm "Edge AI Consumer Utility App"
+## 9. Health Data Generator - Testing & Development
+
+### Overview
+To facilitate development and testing of the HealthMate application, we've created a realistic health data generator that produces believable user activity patterns over a 7-day period.
+
+### Location
+```
+src/python/normal_history_generator.py
+```
+
+### 🚀 How to Use
+```bash
+# Run the generator
+python src/python/normal_history_generator.py
+
+# Output file
+src/python/health_data.json
+```
+
+### What it Generates
+The script creates **7 days** of realistic health data including:
+
+| Metric | Description | Realistic Features |
+|--------|-------------|-------------------|
+| **Sleep Hours** | 6.0-8.5h weekdays, 7.0-9.5h weekends | Weekend sleep-ins |
+| **Daily Steps** | 6k-12k weekdays, 4k-8k weekends | Work vs. leisure patterns |
+| **Hydration** | 1.0-2.5L | Correlates with activity level |
+| **Heart Rate** | 55-80 bpm | Affected by sleep quality |
+| **Screen Time** | 2.0-7.0h | Higher on weekends & low activity days |
+| **Stress Level** | low/medium/high | Based on sleep, activity, day type |
+| **Mood** | good/neutral/bad | Influenced by previous day & stress |
+
+### Smart Correlations
+The generator creates **realistic relationships** between metrics:
+
+- **Poor sleep** → Higher heart rate + more stress
+- **Weekend patterns** → More sleep, less steps, more screen time
+- **High activity** → Better hydration + lower stress
+- **Mood continuity** → Yesterday's mood influences today's
+- **Cascading effects** → One bad day can affect the next
+
+### Sample Output
+```json
+[
+  {
+    "date": "2024-01-15",
+    "day_of_week": "Monday",
+    "sleep_hours": 7.2,
+    "steps": 8500,
+    "hydration_liters": 1.8,
+    "heart_rate_rest": 62,
+    "screen_time_hours": 4.5,
+    "stress_level": "medium",
+    "mood": "good",
+    "is_weekend": false
+  }
+]
+```
+
+### Why Use This?
+- **Test AI algorithms** with realistic patterns
+- **Demo the app** with believable user journeys
+- **Validate health scoring** logic with correlated data
+- **Debug edge cases** like stress spikes or mood dips
+- **No privacy concerns** - completely synthetic data
+
+### Customization
+Easy to modify for different user profiles by adjusting the base ranges in `generate_realistic_day()` function.
+
+---
+
+## 10. Hackathon Alignment – Qualcomm "Edge AI Consumer Utility App"
 
 | Criteria          | Fit | Notes                                                             |
 | ----------------- | --- | ----------------------------------------------------------------- |
