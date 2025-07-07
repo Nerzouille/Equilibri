@@ -92,7 +92,6 @@ Design and develop a fully offline, Edge AI-powered desktop application aimed at
 ---
 
 ## 8. Team Setup I guess (5 members, 3 devs)
-
 | Role               | Responsibilities                                       |
 | ------------------ | ------------------------------------------------------ |
 | Dev 1 – Frontend   | UI implementation, user interaction, notifications     |
@@ -183,3 +182,4 @@ Easy to modify for different user profiles by adjusting the base ranges in `gene
 | Edge AI-powered   | ✅   | All AI (posture, scoring, reminders) run locally                  |
 | Cross-platform    | ✅   | Designed for Windows/macOS/Linux                                  |
 | Developer-ready   | ✅   | Codebase with clear instructions, no external dependency required |
+

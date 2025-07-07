@@ -1,8 +1,13 @@
 # IDE
 .vscode/
+.env
 
 # Python
 __pycache__/
 
 # Tests datas
 health_data.json
+*.pkl
+
+# md
+GUIDE_HACKATHON.md
