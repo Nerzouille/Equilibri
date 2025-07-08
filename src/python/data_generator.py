@@ -225,9 +225,12 @@ def generate_dataset(num_days=1500):
     return data
 
 if __name__ == "__main__":
-    """Generate sample data for a week for testing"""
+    """Generate sample data for a week for testing and save to file"""
     data = generate_week_data()
-    print("Sample health data generated for 7 days")
+    output_file = "src/python/health_data.json"
+    with open(output_file, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+    print(f"Sample health data generated for 7 days and saved in {output_file}")
     print("\nSummary:")
     for day in data:
         print(f"{day['day_of_week']} ({day['date']}): "
