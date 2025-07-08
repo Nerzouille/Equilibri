@@ -1,7 +1,9 @@
 # IDE
 .vscode/
 .env
+.env/*
 .venv
+.venv/*
 
 # Python
 __pycache__/
