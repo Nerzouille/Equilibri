@@ -1,0 +1,20 @@
+{
+  "checkpoints": [
+    {
+      "timestamp": "2025-07-08T16:01:50.032196",
+      "time": "16:01:50",
+      "date": "2025-07-08",
+      "day_of_week": "Tuesday",
+      "sleep_hours": 4.0,
+      "steps": 5000,
+      "hydration_liters": 2.0,
+      "heart_rate_rest": 70,
+      "screen_time_hours": 6.0,
+      "stress_level": "medium",
+      "mood": "neutral",
+      "is_weekend": false,
+      "posture_score": 73.3434888432272
+    }
+  ],
+  "date": "2025-07-08"
+}
