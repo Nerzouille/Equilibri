@@ -1,7 +1,6 @@
 import cv2
 import mediapipe as mp
 import time
-import math
 
 mp_pose = mp.solutions.pose
 mp_drawing = mp.solutions.drawing_utils
@@ -83,9 +82,9 @@ def compute_posture_score(landmarks, reference_shoulder_width=None, reference_he
         penalty = min(40, (head_forward_ratio + 0.02) * 800)
         score -= penalty
 
-    # Penalize the lateral head tilt
-    if ear_diff > 0.05:  # More sensitive threshold for lateral head tilt
-        penalty = min(30, (ear_diff - 0.05) * 300)
+    # Penalize the lateral head tilt (much stronger penalty)
+    if ear_diff > 0.04:  # Increased sensitivity for lateral head tilt
+        penalty = min(50, (ear_diff - 0.04) * 800)  # Stronger scaling and higher max penalty
         score -= penalty
 
     # Penalize forward lean (hunched posture)
