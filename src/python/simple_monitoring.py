@@ -11,7 +11,7 @@ from datetime import datetime
 from pathlib import Path
 import threading
 
-# Importer la fonction de scoring depuis posture_score.py pour éviter la duplication
+# Import scoring function from posture_score.py to avoid duplication
 from posture_score import compute_posture_score
 
 mp_pose = mp.solutions.pose
@@ -159,13 +159,13 @@ class SimpleMonitoring:
             results = pose.process(rgb_frame)
             
             if results.pose_landmarks:
-                # Utiliser la fonction complète de posture_score.py au lieu d'un calcul simplifié
+                # Use complete function from posture_score.py instead of simplified calculation
                 score_data = compute_posture_score(
                     results.pose_landmarks.landmark,
                     ref_shoulder_width,
                     ref_head_shoulder_ratio
                 )
-                # La fonction retourne un tuple, on prend le premier élément (score)
+                # Function returns tuple, take first element (score)
                 score = score_data[0] if isinstance(score_data, tuple) else score_data
                 scores.append(score)
             

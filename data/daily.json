@@ -389,6 +389,51 @@
       "mood": "neutral",
       "is_weekend": false,
       "posture_score": 98.8
+    },
+    {
+      "timestamp": "2025-07-08T17:20:36.420121",
+      "time": "17:20:36",
+      "date": "2025-07-08",
+      "day_of_week": "mardi",
+      "sleep_hours": 4.0,
+      "steps": 5000,
+      "hydration_liters": 2.0,
+      "heart_rate_rest": 70,
+      "screen_time_hours": 6.0,
+      "stress_level": "medium",
+      "mood": "neutral",
+      "is_weekend": false,
+      "posture_score": 100.0
+    },
+    {
+      "timestamp": "2025-07-08T17:26:11.646510",
+      "time": "17:26:11",
+      "date": "2025-07-08",
+      "day_of_week": "mardi",
+      "sleep_hours": 4.0,
+      "steps": 5000,
+      "hydration_liters": 2.0,
+      "heart_rate_rest": 70,
+      "screen_time_hours": 6.0,
+      "stress_level": "medium",
+      "mood": "neutral",
+      "is_weekend": false,
+      "posture_score": 97.2
+    },
+    {
+      "timestamp": "2025-07-08T17:26:44.931530",
+      "time": "17:26:44",
+      "date": "2025-07-08",
+      "day_of_week": "mardi",
+      "sleep_hours": 4.0,
+      "steps": 5000,
+      "hydration_liters": 2.0,
+      "heart_rate_rest": 70,
+      "screen_time_hours": 6.0,
+      "stress_level": "medium",
+      "mood": "neutral",
+      "is_weekend": false,
+      "posture_score": 95.7
     }
   ],
   "date": "2025-07-08"

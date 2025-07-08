@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Ollama Health Advisor - Conseils intelligents basés sur l'IA locale
+Ollama Health Advisor - Intelligent advice based on local AI
 """
 
 import json
@@ -14,12 +14,12 @@ class OllamaAdvisor:
         self.data_file = Path(data_file_path)
         self.model_name = model_name
         self.last_advice_time = 0
-        self.advice_cooldown = 300  # 5 minutes minimum entre conseils
+        self.advice_cooldown = 300  # 5 minutes minimum between advice
         self.last_posture_scores = []
-        self.max_history = 10  # Garder les 10 derniers scores
+        self.max_history = 10  # Keep last 10 scores
         
     def is_ollama_available(self):
-        """Vérifier si Ollama est disponible"""
+        """Check if Ollama is available"""
         try:
             ollama.list()
             return True
@@ -27,7 +27,7 @@ class OllamaAdvisor:
             return False
     
     def call_ollama(self, prompt, max_tokens=200):
-        """Appeler Ollama avec un prompt"""
+        """Call Ollama with a prompt"""
         if not self.is_ollama_available():
             return None
             
@@ -42,11 +42,11 @@ class OllamaAdvisor:
             )
             return response['response'].strip()
         except Exception as e:
-            print(f"Erreur Ollama: {e}")
+            print(f"Ollama error: {e}")
             return None
     
     def load_recent_data(self, days=7):
-        """Charger les données récentes"""
+        """Load recent data"""
         try:
             if not self.data_file.exists():
                 return []
@@ -56,7 +56,7 @@ class OllamaAdvisor:
             
             checkpoints = data.get("checkpoints", [])
             
-            # Filtrer les données récentes
+            # Filter recent data
             cutoff_date = datetime.now() - timedelta(days=days)
             recent_data = []
             
@@ -73,102 +73,102 @@ class OllamaAdvisor:
             return []
     
     def analyze_startup_data(self):
-        """Analyser les données au démarrage et donner des conseils"""
+        """Analyze data at startup and give advice"""
         if not self.is_ollama_available():
-            print("Ollama non disponible - conseils IA désactivés")
+            print("Ollama not available - AI advice disabled")
             return None
         
-        print("Analyse de l'historique...")
+        print("Analyzing history...")
         
         recent_data = self.load_recent_data(days=7)
         if not recent_data:
-            print("Pas d'historique disponible.")
+            print("No history available.")
             return None
         
-        # Préparer le résumé des données
+        # Prepare data summary
         total_entries = len(recent_data)
         avg_posture = sum(d.get("posture_score", 0) for d in recent_data) / total_entries
         avg_sleep = sum(d.get("sleep_hours", 0) for d in recent_data) / total_entries
         avg_hydration = sum(d.get("hydration_liters", 0) for d in recent_data) / total_entries
         
-        # Tendances posture
+        # Posture trends
         posture_scores = [d.get("posture_score", 0) for d in recent_data[-5:]]
         posture_trend = "stable"
         if len(posture_scores) >= 3:
             if posture_scores[-1] > posture_scores[0]:
-                posture_trend = "amélioration"
+                posture_trend = "improving"
             elif posture_scores[-1] < posture_scores[0]:
-                posture_trend = "dégradation"
+                posture_trend = "declining"
         
-        prompt = f"""Tu es un coach santé. Analyse ces données des 7 derniers jours et donne 2-3 conseils courts:
+        prompt = f"""You are a health coach. Analyze this data from the last 7 days and give 2-3 short advice:
 
-Données:
-- {total_entries} mesures sur 7 jours
-- Posture moyenne: {avg_posture:.1f}/100 (tendance: {posture_trend})
-- Sommeil moyen: {avg_sleep:.1f}h/nuit
-- Hydratation moyenne: {avg_hydration:.1f}L/jour
+Data:
+- {total_entries} measurements over 7 days
+- Average posture: {avg_posture:.1f}/100 (trend: {posture_trend})
+- Average sleep: {avg_sleep:.1f}h/night
+- Average hydration: {avg_hydration:.1f}L/day
 
-Réponds en français, sois concret et direct. Maximum 3 phrases courtes."""
+Respond in English, be concrete and direct. Maximum 3 short sentences."""
 
         advice = self.call_ollama(prompt)
         if advice:
-            print("\nConseils basés sur votre historique:")
+            print("\nAdvice based on your history:")
             print(f"{advice}")
         
         return advice
     
     def should_give_advice(self):
-        """Vérifier s'il faut donner un conseil (cooldown)"""
+        """Check if advice should be given (cooldown)"""
         current_time = time.time()
         return (current_time - self.last_advice_time) >= self.advice_cooldown
     
     def add_posture_score(self, score):
-        """Ajouter un score de posture et analyser la tendance"""
+        """Add posture score and analyze trend"""
         self.last_posture_scores.append(score)
         
-        # Garder seulement les derniers scores
+        # Keep only recent scores
         if len(self.last_posture_scores) > self.max_history:
             self.last_posture_scores.pop(0)
         
-        # Analyser si on doit donner un conseil
+        # Analyze if advice should be given
         if len(self.last_posture_scores) >= 5 and self.should_give_advice():
             return self.check_posture_trend()
         
         return None
     
     def check_posture_trend(self):
-        """Vérifier la tendance de posture et donner des conseils si nécessaire"""
+        """Check posture trend and give advice if needed"""
         if not self.is_ollama_available() or len(self.last_posture_scores) < 3:
             return None
         
         recent_scores = self.last_posture_scores[-5:]
         avg_recent = sum(recent_scores) / len(recent_scores)
         
-        # Seulement donner conseil si posture se dégrade ou est mauvaise
+        # Only give advice if posture is declining or poor
         if avg_recent < 60 or (len(recent_scores) >= 3 and recent_scores[-1] < recent_scores[0] - 10):
             
-            trend_desc = "dégradation" if recent_scores[-1] < recent_scores[0] - 10 else "faible"
+            trend_desc = "declining" if recent_scores[-1] < recent_scores[0] - 10 else "poor"
             
-            prompt = f"""Tu es un coach posture. La posture de l'utilisateur montre une {trend_desc}:
-Scores récents: {recent_scores}
-Moyenne récente: {avg_recent:.1f}/100
+            prompt = f"""You are a posture coach. The user's posture shows {trend_desc} performance:
+Recent scores: {recent_scores}
+Recent average: {avg_recent:.1f}/100
 
-Donne UN conseil court pour améliorer la posture maintenant. 1 phrase maximum, direct et actionnable."""
+Give ONE short advice to improve posture now. 1 sentence maximum, direct and actionable."""
 
             advice = self.call_ollama(prompt, max_tokens=80)
             if advice:
                 self.last_advice_time = time.time()
-                print(f"\nConseil posture: {advice}")
+                print(f"\nPosture advice: {advice}")
                 return advice
         
         return None
     
     def give_closing_summary(self):
-        """Donner un résumé et des conseils à la fermeture"""
+        """Give summary and advice at closing"""
         if not self.is_ollama_available():
             return None
         
-        # Analyser la session actuelle
+        # Analyze current session
         session_scores = self.last_posture_scores
         if not session_scores:
             return None
@@ -177,37 +177,37 @@ Donne UN conseil court pour améliorer la posture maintenant. 1 phrase maximum, 
         session_min = min(session_scores)
         session_max = max(session_scores)
         
-        # Charger données récentes pour contexte
+        # Load recent data for context
         recent_data = self.load_recent_data(days=3)
         recent_avg = 0
         if recent_data:
             recent_avg = sum(d.get("posture_score", 0) for d in recent_data) / len(recent_data)
         
-        prompt = f"""Tu es un coach santé qui fait le bilan de la session de travail.
+        prompt = f"""You are a health coach giving a work session summary.
 
-Session actuelle:
-- {len(session_scores)} mesures
-- Posture moyenne: {session_avg:.1f}/100
+Current session:
+- {len(session_scores)} measurements
+- Average posture: {session_avg:.1f}/100
 - Minimum: {session_min}/100, Maximum: {session_max}/100
-- Moyenne des 3 derniers jours: {recent_avg:.1f}/100
+- Last 3 days average: {recent_avg:.1f}/100
 
-Fais un bilan encourageant en 2-3 phrases et donne 1-2 conseils pour demain. Sois direct et constructif."""
+Give an encouraging summary in 2-3 sentences and 1-2 tips for tomorrow. Be direct and constructive."""
 
         advice = self.call_ollama(prompt, max_tokens=200)
         if advice:
-            print(f"\nBilan de session:")
+            print(f"\nSession summary:")
             print(f"{advice}")
         
         return advice
     
     def give_bad_posture_advice(self, current_score):
-        """Conseil spécifique quand la posture est mauvaise"""
+        """Specific advice when posture is very bad"""
         if not self.is_ollama_available() or not self.should_give_advice():
             return None
         
         if current_score < 40:
-            prompt = f"""L'utilisateur a une très mauvaise posture (score: {current_score}/100). 
-Donne UN conseil immédiat et actionnable pour corriger maintenant. 1 phrase courte et directe."""
+            prompt = f"""The user has very bad posture (score: {current_score}/100). 
+Give ONE immediate and actionable advice to correct it now. 1 short and direct sentence."""
             
             advice = self.call_ollama(prompt, max_tokens=60)
             if advice:

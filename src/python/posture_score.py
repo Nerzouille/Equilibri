@@ -129,7 +129,7 @@ def main():
     cap = cv2.VideoCapture(0)
 
     if not cap.isOpened():
-        print("Error: Impossible to open the camera")
+        print("Error: Cannot open camera")
         return
 
     with mp_pose.Pose(
@@ -198,67 +198,73 @@ def main():
 
                 # Display current metrics
                 color = (0, 255, 0) if score >= 70 else (0, 165, 255) if score >= 50 else (0, 0, 255)
-                cv2.putText(frame, f"Posture score: {score}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
-                cv2.putText(frame, f"Shoulder diff: {shoulder_diff:.3f}", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
-                cv2.putText(frame, f"Head forward: {head_forward_ratio:.3f}", (10, 85), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
-                cv2.putText(frame, f"Ear diff: {ear_diff:.3f}", (10, 110), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
-                cv2.putText(frame, f"Shoulder width: {shoulder_width:.3f}", (10, 135), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
-                cv2.putText(frame, f"Head-shoulder ratio: {head_shoulder_height_ratio:.3f}", (10, 160), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
 
-                # Visual indicators for depth detection
-                depth_color = (0, 255, 0) if distance_status == "OK" else (0, 0, 255)
-                cv2.putText(frame, f"Distance: {distance_status}", (10, 185), cv2.FONT_HERSHEY_SIMPLEX, 0.6, depth_color, 2)
-
-                # Forward lean indicator
-                lean_color = (0, 0, 255) if forward_lean_detected else (0, 255, 0)
-                lean_text = "LEANING FORWARD" if forward_lean_detected else "UPRIGHT"
-                cv2.putText(frame, f"Posture: {lean_text}", (10, 210), cv2.FONT_HERSHEY_SIMPLEX, 0.6, lean_color, 2)
-
-                # Display the calibration status
-                if reference_shoulder_width is not None:
-                    cv2.putText(frame, f"Ref: {reference_shoulder_width:.3f} | {reference_head_shoulder_ratio:.3f}", (10, 235), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1)
-                else:
-                    cv2.putText(frame, "Not calibrated - Press 'c'", (10, 235), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
-
-                # Posture warning logic
-                if score < 50:  # Bad posture threshold
+                # Show posture warnings
+                if score < 50:
                     if bad_posture_start_time is None:
                         bad_posture_start_time = current_time
-                    elif current_time - bad_posture_start_time > 3:  # 3 seconds of bad posture
+                    
+                    elapsed = current_time - bad_posture_start_time
+                    
+                    # Show warning after 30 seconds of bad posture
+                    if elapsed >= 30 and not warning_displayed:
+                        print(f"Warning: Bad posture detected for {elapsed:.0f} seconds!")
                         warning_displayed = True
-                else:  # Good posture
-                    bad_posture_start_time = None
-                    warning_displayed = False
+                    
+                    # Show alert every 60 seconds
+                    if elapsed >= 60 and int(elapsed) % 60 == 0:
+                        print(f"Alert: Fix your posture! Bad posture for {elapsed:.0f} seconds")
+                
+                else:
+                    # Reset timer for good posture
+                    if bad_posture_start_time is not None:
+                        duration = current_time - bad_posture_start_time
+                        if duration >= 30:
+                            print(f"Good posture restored after {duration:.0f} seconds")
+                        bad_posture_start_time = None
+                        warning_displayed = False
 
-                # Display warning if needed
-                if warning_displayed and not calibration_mode:
-                    cv2.rectangle(frame, (10, 260), (500, 310), (0, 0, 255), -1)
-                    cv2.putText(frame, "Straighten up!", (20, 290), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (255, 255, 255), 3)
+                # Draw info box
+                cv2.rectangle(frame, (10, frame.shape[0] - 180), (500, frame.shape[0] - 10), (0, 0, 0), -1)
+                
+                info_text = [
+                    f"Posture Score: {score}/100",
+                    f"Shoulder Diff: {shoulder_diff:.3f}",
+                    f"Head Forward: {head_forward_ratio:.3f}",
+                    f"Lateral Tilt: {ear_diff:.3f}",
+                    f"Distance: {distance_status} ({shoulder_width:.3f})",
+                    f"Forward Lean: {'YES' if forward_lean_detected else 'NO'}"
+                ]
+                
+                for i, text in enumerate(info_text):
+                    cv2.putText(frame, text, (20, frame.shape[0] - 160 + i * 25), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1)
 
-            else:
-                # No pose detected
-                cv2.putText(frame, "No posture detected", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-                bad_posture_start_time = None
-                warning_displayed = False
+                # Show status message based on score
+                if score >= 80:
+                    status_msg = "Excellent posture!"
+                elif score >= 70:
+                    status_msg = "Good posture"
+                elif score >= 50:
+                    status_msg = "Correct your posture"
+                else:
+                    status_msg = "BAD POSTURE - URGENT"
+                
+                cv2.putText(frame, status_msg, (20, 50), cv2.FONT_HERSHEY_SIMPLEX, 1.2, color, 2)
 
-            cv2.imshow('Posture Detection', frame)
+            cv2.imshow('Posture Analysis', frame)
 
-            # Handle key presses
-            key = cv2.waitKey(5) & 0xFF
-            if key == 27 or key == ord('q'):  # ESC or 'q' to quit
+            key = cv2.waitKey(1) & 0xFF
+            if key == ord('q') or key == 27:  # ESC
                 break
-            elif key == ord('c'):  # 'c' to calibrate
-                if not calibration_mode:
-                    calibration_mode = True
-                    calibration_samples = []
-                    calibration_head_samples = []
-                    print("Calibration started! Stay in a comfortable position...")
-            elif key == ord('r'):  # 'r' to reset calibration
+            elif key == ord('c') and results.pose_landmarks:
+                calibration_mode = True
+                calibration_samples = []
+                calibration_head_samples = []
+                print("Calibration started! Stay in a comfortable position for 30 measurements...")
+            elif key == ord('r'):
                 reference_shoulder_width = None
                 reference_head_shoulder_ratio = None
                 calibration_mode = False
-                calibration_samples = []
-                calibration_head_samples = []
                 print("Calibration reset!")
 
     cap.release()
