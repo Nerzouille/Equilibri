@@ -1,303 +1,285 @@
-# Specification Document – "HealthMate" Application
+# Equilibri - Smart Health Monitoring with Local AI
 
-## 1. Project Objective
+A comprehensive health monitoring application that combines real-time posture detection, health scoring, and intelligent AI advice - all running locally on your machine.
 
-Design and develop a fully offline, Edge AI-powered desktop application aimed at improving users' daily lifestyle and wellness. The app will act as a personalized health assistant that analyzes behavioral and environmental data to provide tailored recommendations and reminders — all processed locally on-device.
+## 🌟 Features
 
----
+- **Real-time Posture Monitoring**: Webcam-based posture analysis using MediaPipe
+- **Local AI Assistant**: Intelligent health advice using Ollama (completely offline)
+- **Health Score Calculation**: ML-powered daily health scoring
+- **Smart Reminders**: Context-aware advice when posture degrades
+- **Privacy-First**: All data processed locally, nothing sent to external servers
+- **Automatic Calibration**: Personal posture reference calibration
+- **Historical Tracking**: Monitor trends and improvements over time
 
-## 2. Functional Requirements
+## 🚀 Quick Start
 
-| Ref | Feature                  | Description                                                                                                       |
-| --- | ------------------------ | ----------------------------------------------------------------------------------------------------------------- |
-| F1  | Health Score Calculation | Daily score based on sleep, hydration, physical activity, posture, and weather data.                              |
-| F2  | Morning Recommendations  | Three personalized and actionable suggestions provided each morning.                                              |
-| F3  | Contextual Reminders     | Smart prompts throughout the day (hydration, posture, breaks) based on context (schedule, weather, user profile). |
-| F4  | Posture Detection        | Local webcam-based posture analysis via computer vision.                                                          |
-| F5  | Historical Tracking      | Weekly/monthly trends in health score and habits.                                                                 |
-| F6  | Sleep Insights           | Silent nightly analysis with recommendations for improved rest.                                                   |
-| F7  | Fully Offline Mode       | Core features must operate with no internet access.                                                               |
-| F8  | Optional Health API Sync | Optional integration with services like Google Fit, Apple Health, Fitbit.                                         |
-| F9  | Optional Weather Data    | External weather API integration for adaptive suggestions (cached locally).                                       |
-| F10 | Lightweight UI           | Minimalist interface focused on usability and accessibility.                                                      |
+### Prerequisites
 
----
+1. **Python 3.8+** with pip
+2. **Webcam** for posture detection
+3. **Ollama** for AI features (optional but recommended)
 
-## 3. Target Audience
-
-* **Primary users:** General public (students, professionals, anyone seeking healthier habits)
-* **Usage scenario:** Daily personal use on laptop
-* **User goals:** Get simple, actionable wellness support without data sharing or complex setup
-
----
-
-## 4. Technical Constraints
-
-| Category               | Requirement                                                              |
-| ---------------------- | ------------------------------------------------------------------------ |
-| Target platform        | Snapdragon X Elite PCs (compatible with Windows/macOS/Linux)             |
-| Offline-first          | Full functionality without any internet connection                       |
-| Privacy                | All data processed and stored locally                                    |
-| Lightweight processing | Must work efficiently in a resource-constrained local environment        |
-| UX requirements        | Clean, functional UI with subtle interactions                            |
-| Multimodal AI          | Combine tabular/log data (sleep/activity) with computer vision (posture) |
-
----
-
-## 5. Technical Architecture
-
-| Component           | Technologies                                                                            |
-| ------------------- | --------------------------------------------------------------------------------------- |
-| UI Framework        | Tauri + Svelte (or Electron / Flutter Desktop) or whatever we want                      |
-| Backend             | Python (FastAPI or local scripts), or Rust                                              |
-| Local storage       | SQLite or JSON-based storage                                                            |
-| Notification system | Native OS notifications (Windows/macOS/Linux)                                           |
-| Embedded AI         | ONNX Runtime or PyTorch + scikit-learn (lightweight models)                             |
-| Computer Vision     | OpenCV + MediaPipe (or YOLOv8-light for posture detection)                              |
-| Optional APIs       | WeatherAPI / OpenWeatherMap for weather; Fitbit/Google Fit/Apple Health for health data |
-| Data orchestration  | Local cache system or lightweight scheduler for data sync and scoring                   |
-
----
-
-## 6. User Flow
-
-**Morning:**
-
-* App starts
-* Health Score is computed and shown
-* Personalized recommendations are displayed
-
-**During the Day:**
-
-* Smart reminders for hydration, posture, breaks based on user behavior and weather
-* Local CV and data processing running in background
-
-**Evening:**
-
-* Sleep guidance (screen dimming, breathing prompts)
-* Day recap and next-day planning
-
----
-
-## 7. Core Modules
-
-| Module                | Description                                                             |
-| --------------------- | ----------------------------------------------------------------------- |
-| Health Scoring Engine | Local engine combining rule-based logic + statistical model             |
-| Recommendation System | Personalized, contextual tips derived from user inputs and live signals |
-| Posture Analysis      | Real-time, privacy-safe computer vision using webcam data               |
-| Local Sync/API        | (Optional) Local caching of data from weather and health APIs           |
-| Tracking Dashboard    | Local stats visualization and simple trend breakdowns                   |
-
----
-
-## 8. Team Setup I guess (5 members, 3 devs)
-| Role               | Responsibilities                                       |
-| ------------------ | ------------------------------------------------------ |
-| Dev 1 – Frontend   | UI implementation, user interaction, notifications     |
-| Dev 2 – Backend/AI | Score computation, logic, recommendations              |
-| Dev 3 – CV/Edge AI | Posture detection with webcam, local model integration |
-| UX/Design          | UX flow, user scenarios, UI design                     |
-| Pitch & Docs       | GitHub setup, presentation, demo video, pitch to jury  |
-
----
-
-## 9. Current Implementation - ML Health Scoring System
-
-### Overview
-The current implementation focuses on the core ML health scoring engine that analyzes daily health metrics and provides personalized health scores using machine learning.
-
-### Architecture
-```
-src/python/
-├── ml_health_scorer.py      # Main ML scoring engine
-├── data_generator.py        # Realistic health data generator
-├── train_health_model.py    # Model training script
-├── predict_health_score.py  # Prediction interface
-├── test_health_scorer.py    # Testing and validation
-└── config.py               # Configuration and constants
-```
-
-### 🚀 How to Use
-```bash
-# 1. Train the model
-python src/python/train_health_model.py
-
-# 2. Test the system
-python src/python/test_health_scorer.py
-
-# 3. Predict health score
-python src/python/predict_health_score.py
-```
-
-### Installation & Dependencies
+### Installation
 
 ```bash
-# Install Python dependencies
+# 1. Clone the repository
+git clone <repository-url>
+cd Equilibri
+
+# 2. Install Python dependencies
 pip install -r requirements.txt
 
-# Core dependencies:
-# - scikit-learn (ML models)
-# - pandas, numpy (data processing)
-# - joblib (model serialization)
+# 3. Install Ollama (for AI features)
+# Visit https://ollama.ai and install Ollama
+# Then install a model:
+ollama pull llama3:8b
 ```
 
-### Quick Demo
-```bash
-# 1. Train a model (generates synthetic data automatically)
-python src/python/train_health_model.py
+### Running the Application
 
-# 2. Test with different user profiles
+```bash
+# Navigate to the Python source directory
+cd src/python
+
+# Run the main monitoring application
+python equilibri_terminal.py
+```
+
+## 📁 Project Structure
+
+```
+Equilibri/
+├── src/python/
+│   ├── equilibri_terminal.py    # Main application with AI integration
+│   ├── simple_monitoring.py     # Simplified version without AI
+│   ├── posture_score.py         # Posture scoring algorithm
+│   ├── ollama_advisor.py        # AI health advisor
+│   ├── ml_health_scorer.py      # ML health scoring engine
+│   ├── data_generator.py        # Synthetic health data generator
+│   ├── train_health_model.py    # ML model training
+│   ├── test_ollama.py          # Test Ollama integration
+│   └── config.py               # Configuration constants
+├── data/                        # Health data storage
+│   ├── daily.json              # Daily checkpoints
+│   └── config.json             # User calibration data
+├── requirements.txt             # Python dependencies
+├── equilibri.sh                # Launch script
+└── README.md                   # This file
+```
+
+## 🎯 How to Use
+
+### First Time Setup
+
+1. **Start the application**:
+   ```bash
+   python src/python/equilibri_terminal.py
+   ```
+
+2. **Posture Calibration** (mandatory):
+   - Position yourself in your ideal work posture
+   - Press 'c' to start calibration
+   - Hold the position for 30 measurements
+   - Calibration data is saved for future sessions
+
+3. **Initial Health Data**:
+   - Enter your sleep hours, hydration, and step count
+   - These can be updated during the session
+
+### During Monitoring
+
+The application will:
+- **Monitor posture every 30 seconds** automatically
+- **Provide AI advice** when posture degrades or at startup
+- **Save checkpoints** with health scores and posture data
+- **Give encouraging feedback** based on your performance
+
+### Available Commands
+
+While the application is running, you can use these commands:
+
+```bash
+hydration 2.5      # Update hydration to 2.5L
+steps 8000         # Update step count to 8000
+status             # Show current health data
+quit               # Exit with AI summary
+```
+
+### AI Features (Requires Ollama)
+
+- **Startup Analysis**: Reviews your 7-day history and provides quick advice
+- **Smart Interventions**: Gives advice when posture score drops below 60/100
+- **Session Summary**: Provides encouraging feedback and tips when you quit
+- **Cooldown System**: Prevents advice spam (5-minute minimum between suggestions)
+
+## 🧠 AI Configuration
+
+### Ollama Setup
+
+```bash
+# Install Ollama from https://ollama.ai
+# Pull the recommended model
+ollama pull llama3:8b
+
+# Verify installation
+ollama list
+```
+
+### Testing AI Integration
+
+```bash
+# Test if Ollama is working correctly
+python src/python/test_ollama.py
+```
+
+## 📊 Health Scoring
+
+The application uses a sophisticated ML model that analyzes:
+
+| Metric | Description | Optimal Range | Impact |
+|--------|-------------|---------------|---------|
+| **Sleep Hours** | Nightly sleep duration | 7-9 hours | High |
+| **Daily Steps** | Physical activity | 8,000+ steps | High |
+| **Hydration** | Water intake | 2-3 liters | Medium |
+| **Posture Score** | Real-time posture quality | 70+ /100 | High |
+| **Stress Level** | Self-reported stress | Low | Medium |
+| **Mood** | Daily mood state | Good/Neutral | Medium |
+| **Screen Time** | Digital device usage | <6 hours | Low |
+
+### Posture Scoring Algorithm
+
+The posture detection uses MediaPipe to analyze:
+- Shoulder alignment (left/right balance)
+- Head position relative to shoulders
+- Forward head posture
+- Distance from camera (too close/far)
+- Lateral head tilt
+
+Scores range from 0-100, with penalties for poor posture and bonuses for ideal positioning.
+
+## 🔧 Advanced Usage
+
+### Training Custom ML Models
+
+```bash
+# Generate synthetic training data and train models
+python src/python/train_health_model.py --days 2000
+
+# Test the trained model
+python src/python/test_health_scorer.py
+```
+
+### Running Without AI
+
+If you prefer to run without Ollama:
+
+```bash
+# Use the simplified version
+python src/python/simple_monitoring.py
+```
+
+### Data Management
+
+Your health data is stored in:
+- `data/daily.json`: Health checkpoints and posture scores
+- `data/config.json`: Calibration settings
+
+All data stays on your machine and is never transmitted externally.
+
+## 🛠️ Development
+
+### Dependencies
+
+Key Python packages:
+- `opencv-python`: Computer vision and webcam access
+- `mediapipe`: Pose detection and analysis
+- `scikit-learn`: Machine learning models
+- `ollama`: Local AI integration
+- `numpy`, `pandas`: Data processing
+
+### Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test with `python test_ollama.py`
+5. Submit a pull request
+
+## 🐛 Troubleshooting
+
+### Common Issues
+
+**Camera not found**:
+```bash
+# Check camera permissions and availability
+# Ensure no other app is using the webcam
+```
+
+**Ollama not responding**:
+```bash
+# Check if Ollama is running
+ollama list
+
+# Start Ollama service if needed
+ollama serve
+```
+
+**Permission errors**:
+```bash
+# Ensure camera permissions are granted
+# Run with appropriate permissions
+```
+
+**Poor posture detection**:
+- Ensure good lighting
+- Position camera at eye level
+- Sit 60-80cm from camera
+- Recalibrate if needed
+
+### Performance Tips
+
+- Close other camera applications
+- Ensure stable lighting conditions
+- Use the simplified version if performance is poor
+- Adjust monitoring frequency in code if needed
+
+## 📈 Health Insights
+
+The application provides:
+- **Real-time posture scoring** with visual feedback
+- **Trend analysis** over days and weeks
+- **Personalized AI recommendations** based on your patterns
+- **Encouraging feedback** to maintain motivation
+- **Actionable advice** for immediate improvements
+
+## 🎮 Demo Mode
+
+For demonstration purposes:
+```bash
+# Quick test of all features
 python src/python/test_health_scorer.py
 
-# 3. Predict your own health score
-python src/python/predict_health_score.py
+# Test just the AI integration
+python src/python/test_ollama.py
+
+# Manual posture scoring
+python src/python/posture_score.py
 ```
 
-### Health Metrics Analyzed
+## 📝 License
 
-| Metric | Description | Range/Values | Impact on Score |
-|--------|-------------|--------------|-----------------|
-| **Sleep Hours** | Nightly sleep duration | 3.0-12.0 hours | Optimal: 7-9h |
-| **Daily Steps** | Physical activity level | 500-25,000 steps | Target: 8,000+ |
-| **Hydration** | Water intake | 0.5-5.0 liters | Optimal: 2-3L |
-| **Heart Rate** | Resting heart rate | 40-110 bpm | Healthy: 55-75 |
-| **Stress Level** | Perceived stress | low/medium/high | Lower is better |
-| **Mood** | Daily mood state | good/neutral/bad | Positive impact |
-| **Screen Time** | Digital device usage | 1-16 hours | Moderation key |
-| **Weekend** | Day type factor | true/false | Behavior patterns |
+[Add your license information here]
 
-### ML Model Performance
-- **Best Model**: Auto-selected (Random Forest or Gradient Boosting)
-- **Accuracy**: ~85-90% (MAE < 5 points on 100-point scale)
-- **Features**: 8 input features with categorical encoding
-- **Training**: 1500+ synthetic days with realistic correlations
+## 🤝 Support
 
-### Sample Predictions
-```json
-{
-  "sleep_hours": 7.2,
-  "steps": 8500,
-  "hydration_liters": 2.1,
-  "heart_rate_rest": 66,
-  "stress_level": "medium",
-  "mood": "neutral",
-  "screen_time_hours": 5.5,
-  "is_weekend": false
-}
-// → Predicted Score: 72.5/100
-```
+For questions or issues:
+1. Check the troubleshooting section
+2. Review the code documentation
+3. Test individual components
+4. Create an issue with detailed information
 
 ---
 
-## 10. Next Steps - Full Edge AI Implementation
-
-### Planned Features
-- **Computer Vision**: Posture detection using MediaPipe
-- **Local LLM**: Health advice generation with Ollama
-- **Desktop UI**: Cross-platform interface with real-time monitoring
-- **Smart Reminders**: Context-aware notifications throughout the day
-
----
-
-## 11. Hackathon Alignment – Qualcomm "Edge AI Consumer Utility App"
-
-| Criteria          | Fit | Notes                                                             |
-| ----------------- | --- | ----------------------------------------------------------------- |
-| Consumer-oriented | ✅   | Everyday use, health-focused utility                              |
-| Utility-focused   | ✅   | Provides actionable wellness and productivity value               |
-| Edge AI-powered   | ✅   | All AI (posture, scoring, reminders) run locally                  |
-| Cross-platform    | ✅   | Designed for Windows/macOS/Linux                                  |
-| Developer-ready   | ✅   | Codebase with clear instructions, no external dependency required |
-
----
-
-### Core Components
-
-#### 1. ML Health Scorer (`ml_health_scorer.py`)
-- **Purpose**: Main ML engine that predicts health scores from daily metrics
-- **Models**: Random Forest and Gradient Boosting (auto-selects best performer)
-- **Features**: Sleep, steps, hydration, heart rate, stress, mood, screen time
-- **Output**: Health score from 0-100
-
-#### 2. Data Generator (`data_generator.py`)
-- **Purpose**: Creates realistic synthetic health data for training and testing
-- **Profiles**: Supports different user types (athlete, stressed, sedentary, etc.)
-- **Realism**: Correlates metrics (poor sleep → higher heart rate, weekend patterns)
-- **Output**: JSON dataset with 7+ days of health data
-
-### How the Data Generator Works
-
-The data generator (`data_generator.py`) creates realistic synthetic health data by simulating different user profiles and their behavioral patterns:
-
-#### User Profiles
-- **Normal** (70%): Typical user with average habits
-- **Athlete**: High activity, good sleep, low screen time
-- **Stressed**: Poor sleep, high heart rate, irregular patterns
-- **Sedentary**: Low steps, high screen time, poor hydration
-- **Insomniac**: Very low sleep hours (3-5h), cascading effects
-- **Overworker**: Long screen time, poor sleep, high stress
-- **Healthy**: Optimal across all metrics
-- **Unhealthy**: Poor habits across multiple areas
-
-#### Realistic Correlations
-The generator creates believable relationships between metrics:
-- **Poor sleep** → Higher heart rate + increased stress
-- **Weekend patterns** → More sleep, fewer steps, more screen time
-- **High activity** → Better hydration needs + lower stress
-- **Stress cascade** → Bad day affects next day's mood
-- **Seasonal effects** → Weather impacts activity and mood
-
-#### Sample Generation Process
-```python
-# 1. Choose profile (70% normal, 30% extreme)
-profile = generate_extreme_profile()
-
-# 2. Generate base metrics based on profile
-if profile == "athlete":
-    sleep_hours = 7.5-9.5h
-    steps = 15,000-25,000
-    hydration = 3.0-5.0L
-    
-# 3. Apply correlations and adjustments
-heart_rate = base_rate + sleep_penalty - fitness_factor
-hydration *= activity_boost * weekend_factor
-
-# 4. Add realistic noise and constraints
-final_value = max(min_value, min(max_value, calculated_value))
-```
-
-#### Why This Approach Works
-- **Diversity**: 8 different user profiles ensure model sees edge cases
-- **Realism**: Correlations match real-world health patterns
-- **Scalability**: Can generate thousands of days for robust training
-- **Flexibility**: Easy to add new profiles or adjust existing ones
-- **Privacy**: No real user data needed for development
-
-#### Example Generated Day
-```json
-{
-  "profile": "stressed",
-  "sleep_hours": 5.2,        // Poor sleep (stressed profile)
-  "steps": 3400,             // Low activity (stress impact)
-  "hydration_liters": 1.1,   // Forgot to drink water
-  "heart_rate_rest": 82,     // Elevated (stress + poor sleep)
-  "stress_level": "high",    // Direct from profile
-  "mood": "bad",             // Influenced by previous day
-  "screen_time_hours": 9.2,  // High (sedentary behavior)
-  "is_weekend": false
-}
-```
-
-#### 3. Model Training (`train_health_model.py`)
-- **Purpose**: Trains ML models on generated data
-- **Process**: Generates 2000+ days of synthetic data, trains multiple models
-- **Validation**: Cross-validation and test set evaluation
-- **Output**: Trained model saved as `health_model.pkl`
-
-#### 4. Prediction Interface (`predict_health_score.py`)
-- **Purpose**: Predicts health score for new user data
-- **Input**: JSON file or hardcoded example data
-- **Usage**: `python predict_health_score.py user_data.json`
-- **Output**: Predicted health score
+**Equilibri** - Your personal health companion, powered by local AI and computer vision.
 
