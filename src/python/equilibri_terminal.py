@@ -461,23 +461,15 @@ class HealthMonitoring:
         """Thread de monitoring"""
         while self.running:
             try:
-                print(f"\n🔍 Vérification posture... {datetime.now().strftime('%H:%M:%S')}")
-                
+                # Vérification silencieuse de la posture
                 posture_score = self.advanced_posture_check(config)
                 
                 if posture_score:
                     checkpoint = self.save_checkpoint(posture_score)
-                    if checkpoint:
-                        print(f"✅ Checkpoint sauvé: {checkpoint['time']} - Posture: {posture_score:.1f}/100")
-                        
-                        if posture_score < 50:
-                            print("⚠️  Mauvaise posture détectée!")
-                        elif posture_score < 75:
-                            print("💡 Posture à améliorer")
-                        else:
-                            print("✅ Bonne posture!")
+                    # Sauvegarde silencieuse sans message
                 else:
-                    print("❌ Impossible d'analyser la posture")
+                    # Échec silencieux de l'analyse
+                    pass
                 
                 # Attendre 30 secondes
                 for i in range(30):
@@ -486,7 +478,7 @@ class HealthMonitoring:
                     time.sleep(1)
                     
             except Exception as e:
-                print(f"Erreur monitoring: {e}")
+                # Erreur silencieuse
                 time.sleep(5)
     
     def run(self):
