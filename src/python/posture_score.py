@@ -72,13 +72,25 @@ def compute_posture_score(landmarks, reference_shoulder_width=None):
         score -= penalty
 
     # Penalize the incorrect distance (adaptive if we have a reference)
+    # Distance is a critical factor for good posture
     if shoulder_width < min_good_width:
-        penalty = min(50, (min_good_width - shoulder_width) * 400)
-        score -= penalty
+        # Too close = more penalty as it's bad for eyes and posture
+        distance_penalty = min(45, (min_good_width - shoulder_width) * 500)
+        score -= distance_penalty
 
     if shoulder_width > max_good_width:
-        penalty = min(30, (shoulder_width - max_good_width) * 150)
-        score -= penalty
+        # Too far = less penalty but still problematic
+        distance_penalty = min(25, (shoulder_width - max_good_width) * 200)
+        score -= distance_penalty
+
+    # Bonus for perfect distance (in the ideal zone)
+    if reference_shoulder_width is not None:
+        # Calculate how close we are to the reference
+        width_ratio = shoulder_width / reference_shoulder_width
+        if 0.95 <= width_ratio <= 1.05:  # Within 5% of reference
+            score += 5  # Small bonus for perfect distance
+        elif 0.9 <= width_ratio <= 1.1:  # Within 10% of reference
+            score += 2  # Small bonus for good distance
 
     # Ensure the score is between 0 and 100
     score = max(0, min(100, int(score)))
@@ -143,13 +155,13 @@ def main():
                     calibration_samples.append(shoulder_width)
                     cv2.rectangle(frame, (10, 10), (600, 70), (0, 255, 255), -1)
                     cv2.putText(frame, f"CALIBRATION... {len(calibration_samples)}/30", (20, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 0), 2)
-                    cv2.putText(frame, "Restez dans une position confortable", (20, 55), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2)
+                    cv2.putText(frame, "Stay in a comfortable position", (20, 55), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2)
 
                     if len(calibration_samples) >= 30:
                         reference_shoulder_width = sum(calibration_samples) / len(calibration_samples)
                         calibration_mode = False
                         calibration_samples = []
-                        print(f"Calibration terminée ! Distance de référence: {reference_shoulder_width:.3f}")
+                        print(f"Calibration completed! Reference distance: {reference_shoulder_width:.3f}")
 
                 # Display current metrics
                 color = (0, 255, 0) if score >= 70 else (0, 165, 255) if score >= 50 else (0, 0, 255)
@@ -167,7 +179,7 @@ def main():
                 if reference_shoulder_width is not None:
                     cv2.putText(frame, f"Ref: {reference_shoulder_width:.3f}", (10, 185), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1)
                 else:
-                    cv2.putText(frame, "Non calibré - Appuyez sur 'c'", (10, 185), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
+                    cv2.putText(frame, "Not calibrated - Press 'c'", (10, 185), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
 
                 # Posture warning logic
                 if score < 50:  # Bad posture threshold
@@ -182,7 +194,7 @@ def main():
                 # Display warning if needed
                 if warning_displayed and not calibration_mode:
                     cv2.rectangle(frame, (10, 210), (500, 260), (0, 0, 255), -1)
-                    cv2.putText(frame, "Redresse-toi !", (20, 240), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (255, 255, 255), 3)
+                    cv2.putText(frame, "Straighten up!", (20, 240), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (255, 255, 255), 3)
 
             else:
                 # No pose detected
@@ -200,12 +212,12 @@ def main():
                 if not calibration_mode:
                     calibration_mode = True
                     calibration_samples = []
-                    print("Calibration started ! Stay in a comfortable position...")
+                    print("Calibration started! Stay in a comfortable position...")
             elif key == ord('r'):  # 'r' to reset calibration
                 reference_shoulder_width = None
                 calibration_mode = False
                 calibration_samples = []
-                print("Calibration reset !")
+                print("Calibration reset!")
 
     cap.release()
     cv2.destroyAllWindows()
