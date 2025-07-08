@@ -14,3 +14,6 @@ seaborn>=0.12.0
 psutil>=5.9.0
 mediapipe
 opencv-python
+
+# Ollama AI integration
+ollama>=0.1.0

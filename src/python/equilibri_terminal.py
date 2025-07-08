@@ -12,6 +12,36 @@ from pathlib import Path
 import threading
 import signal
 import sys
+import os
+import logging
+import warnings
+
+# Importer la fonction de scoring depuis posture_score.py pour éviter la duplication
+from posture_score import compute_posture_score
+# Importer l'advisor IA Ollama
+from ollama_advisor import OllamaAdvisor
+
+# Supprimer les messages de log TensorFlow/MediaPipe
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+os.environ['GLOG_minloglevel'] = '3'
+warnings.filterwarnings('ignore')
+logging.getLogger('tensorflow').setLevel(logging.ERROR)
+logging.getLogger('mediapipe').setLevel(logging.ERROR)
+
+# Rediriger stderr temporairement pour supprimer les messages I0000/W0000
+import sys
+from io import StringIO
+
+class SuppressOutput:
+    def __init__(self):
+        self.original_stderr = sys.stderr
+        
+    def __enter__(self):
+        sys.stderr = StringIO()
+        return self
+        
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        sys.stderr = self.original_stderr
 
 mp_pose = mp.solutions.pose
 mp_drawing = mp.solutions.drawing_utils
@@ -24,6 +54,10 @@ class HealthMonitoring:
         self.daily_file = self.data_dir / "daily.json"
         self.running = False
         
+        # Camera et pose - garder ouverts en permanence
+        self.cap = None
+        self.pose = None
+        
         # Manual data
         self.manual_data = {
             "sleep_hours": 8.0,
@@ -33,6 +67,9 @@ class HealthMonitoring:
             "mood": "neutral"
         }
         
+        # IA Advisor Ollama
+        self.ai_advisor = OllamaAdvisor(self.daily_file)
+        
         # Signal handling
         signal.signal(signal.SIGINT, self.signal_handler)
         
@@ -40,7 +77,43 @@ class HealthMonitoring:
         """Handle Ctrl+C"""
         print("\nArrêt du monitoring...")
         self.running = False
+        
+        # Donner le bilan final avec l'IA
+        self.ai_advisor.give_closing_summary()
+        
+        self.cleanup_camera()
         sys.exit(0)
+        
+    def init_camera(self):
+        """Initialiser la caméra et MediaPipe une seule fois"""
+        if self.cap is None:
+            print("Initialisation de la caméra...")
+            with SuppressOutput():
+                self.cap = cv2.VideoCapture(0)
+                self.pose = mp_pose.Pose(
+                    static_image_mode=False,
+                    model_complexity=1,
+                    smooth_landmarks=True,
+                    min_detection_confidence=0.5,
+                    min_tracking_confidence=0.5
+                )
+            
+            if not self.cap.isOpened():
+                print("Impossible d'ouvrir la caméra")
+                return False
+            print("Caméra initialisée")
+            return True
+        return True
+        
+    def cleanup_camera(self):
+        """Nettoyer les ressources caméra"""
+        if self.cap is not None:
+            self.cap.release()
+            self.cap = None
+        if self.pose is not None:
+            self.pose.close()
+            self.pose = None
+        cv2.destroyAllWindows()
         
     def load_config(self):
         """Load configuration"""
@@ -61,26 +134,16 @@ class HealthMonitoring:
             print(f"Erreur sauvegarde config: {e}")
     
     def calibrate_posture_distance(self):
-        """Calibration complète de la distance à la caméra (comme posture_score.py)"""
-        print("\n🎯 CALIBRATION POSTURE")
+        """Calibration complète de la distance à la caméra"""
+        print("\nCALIBRATION POSTURE")
         print("=" * 50)
         print("Positionnez-vous dans votre position de travail idéale")
         print("Appuyez sur 'c' pour commencer la calibration")
         print("Appuyez sur 'r' pour recommencer")
         print("Appuyez sur 'q' ou ESC pour annuler")
         
-        cap = cv2.VideoCapture(0)
-        if not cap.isOpened():
-            print("❌ Impossible d'ouvrir la caméra")
+        if not self.init_camera():
             return None
-
-        pose = mp_pose.Pose(
-            static_image_mode=False,
-            model_complexity=1,
-            smooth_landmarks=True,
-            min_detection_confidence=0.5,
-            min_tracking_confidence=0.5
-        )
         
         calibration_mode = False
         calibration_samples = []
@@ -88,18 +151,18 @@ class HealthMonitoring:
         reference_shoulder_width = None
         reference_head_shoulder_ratio = None
 
-        print("📹 Aperçu caméra ouvert - positionnez-vous confortablement")
+        print("Aperçu caméra ouvert - positionnez-vous confortablement")
 
         while True:
-            ret, frame = cap.read()
+            ret, frame = self.cap.read()
             if not ret:
-                print("❌ Erreur lecture caméra")
+                print("Erreur lecture caméra")
                 break
 
             # Miroir horizontal
             frame = cv2.flip(frame, 1)
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            results = pose.process(rgb_frame)
+            results = self.pose.process(rgb_frame)
 
             if results.pose_landmarks:
                 # Dessiner les landmarks
@@ -138,163 +201,46 @@ class HealthMonitoring:
                         reference_shoulder_width = sum(calibration_samples) / len(calibration_samples)
                         reference_head_shoulder_ratio = sum(calibration_head_samples) / len(calibration_head_samples)
                         
-                        print(f"\n✅ Calibration terminée!")
-                        print(f"   📏 Largeur épaules: {reference_shoulder_width:.3f}")
-                        print(f"   📐 Ratio tête-épaules: {reference_head_shoulder_ratio:.3f}")
+                        print(f"\nCalibration terminée!")
+                        print(f"   Largeur épaules: {reference_shoulder_width:.3f}")
+                        print(f"   Ratio tête-épaules: {reference_head_shoulder_ratio:.3f}")
                         
-                        cap.release()
                         cv2.destroyAllWindows()
                         
                         return {
                             "reference_shoulder_width": reference_shoulder_width,
                             "reference_head_shoulder_ratio": reference_head_shoulder_ratio,
-                            "calibration_date": datetime.now().isoformat()
+                            "calibrated": True
                         }
 
-                # Afficher instructions
-                if not calibration_mode:
-                    cv2.putText(frame, "Position ideale -> Appuyez 'c'", 
-                               (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-                    cv2.putText(frame, "Recommencer -> Appuyez 'r'", 
-                               (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
-                    cv2.putText(frame, "Annuler -> Appuyez 'q' ou ESC", 
-                               (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+                # Affichage des métriques actuelles
+                shoulder_str = f"Largeur epaules: {shoulder_width:.3f}"
+                head_str = f"Ratio tete-epaules: {head_shoulder_height_ratio:.3f}"
+                
+                cv2.rectangle(frame, (10, frame.shape[0] - 80), (500, frame.shape[0] - 10), (0, 0, 0), -1)
+                cv2.putText(frame, shoulder_str, (20, frame.shape[0] - 60), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+                cv2.putText(frame, head_str, (20, frame.shape[0] - 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
 
-                # Afficher métriques actuelles
-                cv2.putText(frame, f"Largeur epaules: {shoulder_width:.3f}", 
-                           (10, frame.shape[0] - 60), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
-                cv2.putText(frame, f"Ratio tete-epaules: {head_shoulder_height_ratio:.3f}", 
-                           (10, frame.shape[0] - 40), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
-
-                # Afficher calibration actuelle si disponible
-                if reference_shoulder_width is not None:
-                    cv2.putText(frame, f"Ref: {reference_shoulder_width:.3f} | {reference_head_shoulder_ratio:.3f}", 
-                               (10, frame.shape[0] - 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1)
-
-            else:
-                # Pas de pose détectée
-                cv2.putText(frame, "Positionnez-vous face à la caméra", 
-                           (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-
-            cv2.imshow('Calibration Posture - Equilibri', frame)
-
-            # Gestion des touches
-            key = cv2.waitKey(5) & 0xFF
-            if key == 27 or key == ord('q'):  # ESC ou 'q' pour quitter
-                print("\n❌ Calibration annulée")
-                break
-            elif key == ord('c') and not calibration_mode:  # 'c' pour calibrer
-                if results.pose_landmarks:
-                    calibration_mode = True
-                    calibration_samples = []
-                    calibration_head_samples = []
-                    print("🎯 Calibration démarrée! Restez dans votre position...")
-                else:
-                    print("❌ Aucune pose détectée, positionnez-vous face à la caméra")
-            elif key == ord('r'):  # 'r' pour recommencer
+            cv2.imshow("Calibration Posture", frame)
+            
+            key = cv2.waitKey(1) & 0xFF
+            if key == ord('c') and not calibration_mode:
+                calibration_mode = True
+                calibration_samples = []
+                calibration_head_samples = []
+                print("Calibration commencée - restez dans votre position idéale")
+            elif key == ord('r'):
                 calibration_mode = False
                 calibration_samples = []
                 calibration_head_samples = []
-                reference_shoulder_width = None
-                reference_head_shoulder_ratio = None
-                print("🔄 Calibration remise à zéro")
+                print("Calibration remise à zéro")
+            elif key == ord('q') or key == 27:  # ESC
+                print("Calibration annulée")
+                break
 
         # Nettoyage
-        cap.release()
         cv2.destroyAllWindows()
         return None
-    def compute_posture_score(self, landmarks, reference_shoulder_width=None, reference_head_shoulder_ratio=None):
-        """Score de posture basé sur des critères réalistes (copié de posture_score.py)"""
-        nose = landmarks[mp_pose.PoseLandmark.NOSE.value]
-        left_shoulder = landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value]
-        right_shoulder = landmarks[mp_pose.PoseLandmark.RIGHT_SHOULDER.value]
-        left_ear = landmarks[mp_pose.PoseLandmark.LEFT_EAR.value]
-        right_ear = landmarks[mp_pose.PoseLandmark.RIGHT_EAR.value]
-
-        # 1. Alignement des épaules
-        shoulder_diff = abs(left_shoulder.y - right_shoulder.y)
-
-        # 2. Position avant de la tête
-        shoulder_mid_y = (left_shoulder.y + right_shoulder.y) / 2
-        head_forward_ratio = (nose.y - shoulder_mid_y)
-
-        # 3. Ratio hauteur tête-épaules
-        head_shoulder_height_ratio = abs(nose.y - shoulder_mid_y)
-
-        # 4. Inclinaison latérale de la tête
-        ear_diff = abs(left_ear.y - right_ear.y)
-
-        # 5. Distance avant/arrière basée sur la largeur des épaules
-        shoulder_width = abs(right_shoulder.x - left_shoulder.x)
-
-        # Utiliser les références si disponibles
-        if reference_shoulder_width is not None:
-            min_good_width = reference_shoulder_width * 0.8
-            max_good_width = reference_shoulder_width * 1.2
-            width_ratio = shoulder_width / reference_shoulder_width
-            distance_status = "OK"
-            if width_ratio > 1.2:
-                distance_status = "TROP PROCHE"
-            elif width_ratio < 0.8:
-                distance_status = "TROP LOIN"
-        else:
-            min_good_width = 0.22
-            max_good_width = 0.45
-            distance_status = "OK" if min_good_width <= shoulder_width <= max_good_width else ("TROP LOIN" if shoulder_width < min_good_width else "TROP PROCHE")
-
-        # Détection penché en avant
-        forward_lean_detected = False
-        if reference_head_shoulder_ratio is not None:
-            lean_threshold = reference_head_shoulder_ratio * 0.7
-            if head_shoulder_height_ratio < lean_threshold:
-                forward_lean_detected = True
-        else:
-            if head_shoulder_height_ratio < 0.15:
-                forward_lean_detected = True
-
-        # Calcul du score (commence à 100)
-        score = 100
-
-        # Pénalités
-        if shoulder_diff > 0.03:
-            penalty = min(40, (shoulder_diff - 0.03) * 1000)
-            score -= penalty
-
-        if head_forward_ratio > -0.02:
-            penalty = min(40, (head_forward_ratio + 0.02) * 800)
-            score -= penalty
-
-        if ear_diff > 0.04:
-            penalty = min(50, (ear_diff - 0.04) * 800)
-            score -= penalty
-
-        if forward_lean_detected:
-            if reference_head_shoulder_ratio is not None:
-                deviation = reference_head_shoulder_ratio - head_shoulder_height_ratio
-                penalty = min(40, deviation * 300)
-                score -= penalty
-            else:
-                penalty = min(30, (0.15 - head_shoulder_height_ratio) * 200)
-                score -= penalty
-
-        if shoulder_width < min_good_width:
-            distance_penalty = min(45, (min_good_width - shoulder_width) * 500)
-            score -= distance_penalty
-
-        if shoulder_width > max_good_width:
-            distance_penalty = min(25, (shoulder_width - max_good_width) * 200)
-            score -= distance_penalty
-
-        # Bonus pour distance parfaite
-        if reference_shoulder_width is not None:
-            width_ratio = shoulder_width / reference_shoulder_width
-            if 0.95 <= width_ratio <= 1.05:
-                score += 5
-            elif 0.9 <= width_ratio <= 1.1:
-                score += 2
-
-        score = max(0, min(100, int(score)))
-        return score
 
     def advanced_posture_check(self, config):
         """Vérification avancée de posture avec le vrai algorithme"""
@@ -309,104 +255,45 @@ class HealthMonitoring:
             return None
         
         try:
-            cap = cv2.VideoCapture(0)
-            if not cap.isOpened():
+            if not self.init_camera():
                 return None
-            
-            pose = mp_pose.Pose(
-                static_image_mode=False,
-                model_complexity=1,
-                smooth_landmarks=True,
-                min_detection_confidence=0.5,
-                min_tracking_confidence=0.5
-            )
             
             scores = []
             
             # Prendre 10 échantillons sur 3 secondes
             for i in range(10):
-                ret, frame = cap.read()
+                ret, frame = self.cap.read()
                 if not ret:
                     continue
                 
                 frame = cv2.flip(frame, 1)
                 rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                results = pose.process(rgb_frame)
+                results = self.pose.process(rgb_frame)
                 
                 if results.pose_landmarks:
-                    score = self.compute_posture_score(
+                    # Utiliser la fonction importée de posture_score.py
+                    score_data = compute_posture_score(
                         results.pose_landmarks.landmark,
                         ref_shoulder_width,
                         ref_head_shoulder_ratio
                     )
+                    # La fonction retourne un tuple, on prend le premier élément (score)
+                    score = score_data[0] if isinstance(score_data, tuple) else score_data
                     scores.append(score)
                 
                 time.sleep(0.3)
             
-            cap.release()
-            cv2.destroyAllWindows()
+            avg_score = sum(scores) / len(scores) if scores else None
             
-            return sum(scores) / len(scores) if scores else None
-            
-        except Exception as e:
-            print(f"Erreur analyse posture: {e}")
-            try:
-                cap.release()
-                cv2.destroyAllWindows()
-            except:
-                pass
-            return None
-        posture_config = config.get("posture", {})
-        if not posture_config.get("calibrated", False):
-            return None
-            
-        ref_shoulder_width = posture_config.get("reference_shoulder_width")
-        ref_head_shoulder_ratio = posture_config.get("reference_head_shoulder_ratio")
-        
-        if not ref_shoulder_width or not ref_head_shoulder_ratio:
-            return None
-        
-        try:
-            cap = cv2.VideoCapture(0)
-            if not cap.isOpened():
-                return None
-            
-            pose = mp_pose.Pose(static_image_mode=False, min_detection_confidence=0.7)
-            scores = []
-            
-            # Prendre 5 échantillons rapides
-            for i in range(5):
-                ret, frame = cap.read()
-                if not ret:
-                    continue
+            # Ajouter le score à l'IA et vérifier si elle doit donner un conseil
+            if avg_score is not None:
+                self.ai_advisor.add_posture_score(avg_score)
                 
-                frame = cv2.flip(frame, 1)
-                rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                results = pose.process(rgb_frame)
-                
-                if results.pose_landmarks:
-                    landmarks = results.pose_landmarks.landmark
-                    nose = landmarks[mp_pose.PoseLandmark.NOSE.value]
-                    left_shoulder = landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value]
-                    right_shoulder = landmarks[mp_pose.PoseLandmark.RIGHT_SHOULDER.value]
-                    
-                    current_shoulder_width = abs(right_shoulder.x - left_shoulder.x)
-                    shoulder_mid_y = (left_shoulder.y + right_shoulder.y) / 2
-                    current_head_shoulder_ratio = abs(nose.y - shoulder_mid_y)
-                    
-                    # Score simple
-                    width_diff = abs(current_shoulder_width - ref_shoulder_width) / ref_shoulder_width
-                    ratio_diff = abs(current_head_shoulder_ratio - ref_head_shoulder_ratio) / ref_head_shoulder_ratio
-                    
-                    score = max(0, 100 - (width_diff + ratio_diff) * 100)
-                    scores.append(score)
-                
-                time.sleep(0.1)
+                # Conseil spécifique pour très mauvaise posture
+                if avg_score < 40:
+                    self.ai_advisor.give_bad_posture_advice(avg_score)
             
-            cap.release()
-            cv2.destroyAllWindows()
-            
-            return sum(scores) / len(scores) if scores else None
+            return avg_score
             
         except Exception as e:
             print(f"Erreur analyse posture: {e}")
@@ -483,13 +370,16 @@ class HealthMonitoring:
     
     def run(self):
         """Fonction principale"""
-        print("🎯 EQUILIBRI - Monitoring Santé Simple")
+        print("EQUILIBRI - Monitoring Santé Simple")
         print("=" * 50)
+        
+        # Analyse IA de l'historique au démarrage
+        self.ai_advisor.analyze_startup_data()
         
         # Calibration OBLIGATOIRE au démarrage
         config = self.load_config()
         
-        print("🎯 CALIBRATION DISTANCE CAMÉRA")
+        print("\nCALIBRATION DISTANCE CAMÉRA")
         print("Cette étape est obligatoire pour un score de posture précis")
         
         # Toujours forcer une nouvelle calibration
@@ -499,20 +389,20 @@ class HealthMonitoring:
             if calibration_data:
                 config["posture"] = {"calibrated": True, **calibration_data}
                 self.save_config(config)
-                print("✅ Calibration terminée et sauvegardée")
+                print("Calibration terminée et sauvegardée")
             else:
-                print("❌ Calibration échouée - le monitoring de posture sera désactivé")
+                print("Calibration échouée - le monitoring de posture sera désactivé")
                 config["posture"] = {"calibrated": False}
         else:
             # Vérifier si une calibration existe déjà
             if not config.get("posture", {}).get("calibrated", False):
-                print("⚠️  Aucune calibration trouvée - le monitoring de posture sera désactivé")
+                print("Aucune calibration trouvée - le monitoring de posture sera désactivé")
                 config["posture"] = {"calibrated": False}
             else:
-                print("ℹ️  Utilisation de la calibration existante")
+                print("Utilisation de la calibration existante")
         
         # Données initiales
-        print("\n📋 Configuration données initiales:")
+        print("\nConfiguration données initiales:")
         try:
             sleep = input(f"Heures de sommeil (défaut: {self.manual_data['sleep_hours']}): ")
             if sleep.strip():
@@ -529,7 +419,8 @@ class HealthMonitoring:
             print("Utilisation des valeurs par défaut")
         
         # Démarrer monitoring
-        print(f"\n🔄 Démarrage monitoring (vérification toutes les 30s)")
+        print(f"\nDémarrage monitoring (vérification toutes les 30s)")
+        print("L'IA donnera des conseils quand nécessaire")
         print("Commandes disponibles:")
         print("  hydration <valeur>  - Mettre à jour l'hydratation")
         print("  steps <valeur>      - Mettre à jour les pas")
@@ -550,47 +441,59 @@ class HealthMonitoring:
                 
                 if cmd == "quit":
                     self.running = False
+                    print("Génération du bilan final...")
+                    self.ai_advisor.give_closing_summary()
                     break
                 elif cmd == "status":
-                    print(f"💤 Sommeil: {self.manual_data['sleep_hours']}h")
-                    print(f"💧 Hydratation: {self.manual_data['hydration_liters']}L")
-                    print(f"🚶 Pas: {self.manual_data['steps']}")
-                    print(f"😰 Stress: {self.manual_data['stress_level']}")
-                    print(f"😊 Humeur: {self.manual_data['mood']}")
+                    print(f"Sommeil: {self.manual_data['sleep_hours']}h")
+                    print(f"Hydratation: {self.manual_data['hydration_liters']}L")
+                    print(f"Pas: {self.manual_data['steps']}")
+                    print(f"Stress: {self.manual_data['stress_level']}")
+                    print(f"Humeur: {self.manual_data['mood']}")
                 elif cmd.startswith("hydration "):
                     try:
                         value = float(cmd.split()[1])
                         self.manual_data["hydration_liters"] = value
-                        print(f"💧 Hydratation mise à jour: {value}L")
+                        print(f"Hydratation mise à jour: {value}L")
                     except:
-                        print("❌ Format invalide. Utiliser: hydration 2.5")
+                        print("Format invalide. Utiliser: hydration 2.5")
                 elif cmd.startswith("steps "):
                     try:
                         value = int(cmd.split()[1])
                         self.manual_data["steps"] = value
-                        print(f"🚶 Pas mis à jour: {value}")
+                        print(f"Pas mis à jour: {value}")
                     except:
-                        print("❌ Format invalide. Utiliser: steps 8000")
+                        print("Format invalide. Utiliser: steps 8000")
                 elif cmd:
-                    print("❌ Commande inconnue. Taper 'quit' pour quitter.")
+                    print("Commande inconnue. Taper 'quit' pour quitter.")
                     
             except KeyboardInterrupt:
                 self.running = False
+                print("\nGénération du bilan final...")
+                self.ai_advisor.give_closing_summary()
                 break
             except EOFError:
                 self.running = False
+                print("\nGénération du bilan final...")
+                self.ai_advisor.give_closing_summary()
                 break
         
-        print("\n👋 Monitoring arrêté")
+        print("\nMonitoring arrêté")
+        self.cleanup_camera()
 
 def main():
     try:
         app = HealthMonitoring()
         app.run()
     except KeyboardInterrupt:
-        print("\n👋 Programme interrompu")
+        print("\nProgramme interrompu")
     except Exception as e:
-        print(f"❌ Erreur: {e}")
+        print(f"Erreur: {e}")
+    finally:
+        try:
+            app.cleanup_camera()
+        except:
+            pass
 
 if __name__ == "__main__":
     main()

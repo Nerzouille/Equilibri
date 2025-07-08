@@ -11,6 +11,9 @@ from datetime import datetime
 from pathlib import Path
 import threading
 
+# Importer la fonction de scoring depuis posture_score.py pour éviter la duplication
+from posture_score import compute_posture_score
+
 mp_pose = mp.solutions.pose
 mp_drawing = mp.solutions.drawing_utils
 
@@ -130,7 +133,7 @@ class SimpleMonitoring:
         return None
     
     def get_posture_score(self, config):
-        """Get current posture score"""
+        """Get current posture score using the proper scoring function"""
         posture_config = config.get("posture", {})
         ref_shoulder_width = posture_config.get("reference_shoulder_width")
         ref_head_shoulder_ratio = posture_config.get("reference_head_shoulder_ratio")
@@ -156,20 +159,14 @@ class SimpleMonitoring:
             results = pose.process(rgb_frame)
             
             if results.pose_landmarks:
-                landmarks = results.pose_landmarks.landmark
-                nose = landmarks[mp_pose.PoseLandmark.NOSE.value]
-                left_shoulder = landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value]
-                right_shoulder = landmarks[mp_pose.PoseLandmark.RIGHT_SHOULDER.value]
-                
-                current_shoulder_width = abs(right_shoulder.x - left_shoulder.x)
-                shoulder_mid_y = (left_shoulder.y + right_shoulder.y) / 2
-                current_head_shoulder_ratio = abs(nose.y - shoulder_mid_y)
-                
-                # Calculate score
-                width_diff = abs(current_shoulder_width - ref_shoulder_width) / ref_shoulder_width
-                ratio_diff = abs(current_head_shoulder_ratio - ref_head_shoulder_ratio) / ref_head_shoulder_ratio
-                
-                score = max(0, 100 - (width_diff + ratio_diff) * 100)
+                # Utiliser la fonction complète de posture_score.py au lieu d'un calcul simplifié
+                score_data = compute_posture_score(
+                    results.pose_landmarks.landmark,
+                    ref_shoulder_width,
+                    ref_head_shoulder_ratio
+                )
+                # La fonction retourne un tuple, on prend le premier élément (score)
+                score = score_data[0] if isinstance(score_data, tuple) else score_data
                 scores.append(score)
             
             time.sleep(0.2)
@@ -317,57 +314,62 @@ class SimpleMonitoring:
     
     def run(self):
         """Main run function"""
-        print("EQUILIBRI - Simple Health Monitoring")
-        print("=" * 50)
+        print("Simple Health Monitoring")
+        print("=" * 40)
         
-        # Load config
         config = self.load_config()
         
-        # Check calibration
-        if not config.get("posture", {}).get("calibrated", False):
-            print("Posture calibration required")
+        # Check if posture is calibrated
+        if not config.get("posture", {}).get("reference_shoulder_width"):
+            print("Posture not calibrated. Starting calibration...")
             calibration_data = self.calibrate_posture()
             if calibration_data:
-                config["posture"] = {"calibrated": True, **calibration_data}
+                config["posture"] = calibration_data
                 self.save_config(config)
-                print("Posture calibrated successfully")
+                print("Calibration saved!")
             else:
-                print("Calibration failed - continuing without posture monitoring")
+                print("Calibration failed. Posture monitoring will be disabled.")
+                return
+        else:
+            print("Using existing posture calibration.")
         
-        # Set initial manual data
-        print("Set initial data (press Enter for defaults):")
+        # Initialize manual data
+        print("\nInitial data entry:")
         try:
-            sleep = input(f"Sleep hours (default: {self.manual_data['sleep_hours']}): ")
+            sleep = input(f"Sleep hours (default {self.manual_data['sleep_hours']}): ")
             if sleep.strip():
                 self.manual_data["sleep_hours"] = float(sleep)
             
-            hydration = input(f"Hydration liters (default: {self.manual_data['hydration_liters']}): ")
+            hydration = input(f"Hydration in L (default {self.manual_data['hydration_liters']}): ")
             if hydration.strip():
                 self.manual_data["hydration_liters"] = float(hydration)
             
-            steps = input(f"Steps (default: {self.manual_data['steps']}): ")
+            steps = input(f"Steps (default {self.manual_data['steps']}): ")
             if steps.strip():
                 self.manual_data["steps"] = int(steps)
-                
-        except ValueError:
-            print("Invalid input, using defaults")
+        except:
+            print("Using defaults")
         
-        # Start monitoring
         self.running = True
         
         # Start monitoring thread
-        monitoring_thread = threading.Thread(target=self.monitoring_loop, args=(config,))
-        monitoring_thread.daemon = True
-        monitoring_thread.start()
+        monitor_thread = threading.Thread(target=self.monitoring_loop, args=(config,))
+        monitor_thread.daemon = True
+        monitor_thread.start()
         
         # Handle commands
         self.command_handler()
         
-        print("Monitoring stopped")
+        print("Monitoring stopped.")
 
 def main():
-    app = SimpleMonitoring()
-    app.run()
+    try:
+        app = SimpleMonitoring()
+        app.run()
+    except KeyboardInterrupt:
+        print("\nProgram interrupted")
+    except Exception as e:
+        print(f"Error: {e}")
 
 if __name__ == "__main__":
     main()
